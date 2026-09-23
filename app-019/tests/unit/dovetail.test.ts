@@ -101,6 +101,65 @@ describe('燕尾齿宽分配（蓝图 §8 约束）', () => {
     expect(r.warnings.some((w) => w.includes('齿数过少'))).toBe(true)
   })
 
+  it('回归·板宽300齿数2：警告写明项目、当前值、调整方向', () => {
+    const r = computeDovetail({ width: 300, thickness: 18, ratio: 8, teeth: 2, kerf: 1.1, wood: 'hardwood' })
+    const w = r.warnings.find((x) => x.includes('齿数过少'))!
+    expect(w).toContain('2') // 当前值
+    expect(w).toContain('300') // 板宽
+    expect(w).toContain('增加齿数') // 怎么调
+  })
+
+  it('回归·齿顶为正但窄于2×kerf：必须给锯路警告（写明当前值与2×kerf）', () => {
+    // 齿根/齿顶均为正（仍可排布），但齿顶 4.2 < 2×2.2=4.4：锯片切不出来
+    const r = computeDovetail({ width: 40, thickness: 12, ratio: 6, teeth: 9, kerf: 2.2, wood: 'hardwood' })
+    const minTop = Math.min(...r.teeth.map((t) => t.topW))
+    const minRoot = Math.min(...r.teeth.map((t) => t.rootW))
+    expect(minRoot).toBeGreaterThanOrEqual(0)
+    expect(minTop).toBeGreaterThanOrEqual(0)
+    expect(minTop).toBeLessThan(2 * 2.2)
+    const w = r.warnings.find((x) => x.includes('锯路'))!
+    expect(w).toBeDefined()
+    expect(w).toContain(minTop.toFixed(1))
+    expect(w).toContain('4.4') // 2×2.2
+    expect(w).toContain('减少齿数')
+  })
+
+  it('回归·齿根低于材料最小安全值：软木6/硬木4警告分别写明阈值', () => {
+    const rH = computeDovetail({ width: 60, thickness: 18, ratio: 8, teeth: 12, kerf: 1.1, wood: 'hardwood' })
+    expect(rH.warnings.some((w) => w.includes('低于硬木最小安全值') && w.includes('4mm'))).toBe(true)
+    const rS = computeDovetail({ width: 100, thickness: 18, ratio: 6, teeth: 9, kerf: 1.1, wood: 'softwood' })
+    const minRootS = Math.min(...rS.teeth.map((t) => t.rootW))
+    if (minRootS < 6) {
+      expect(rS.warnings.some((w) => w.includes('低于软木最小安全值') && w.includes('6mm'))).toBe(true)
+    }
+  })
+
+  it('回归·齿数超出2~12（13/15/1）：范围警告且图纸仍按钳制齿数渲染', () => {
+    for (const teeth of [13, 15, 1]) {
+      const r = computeDovetail({ width: 200, thickness: 18, ratio: 8, teeth, kerf: 1.1, wood: 'hardwood' })
+      const w = r.warnings.find((x) => x.includes('超出合理范围'))!
+      expect(w).toBeDefined()
+      expect(w).toContain(String(teeth)) // 当前值
+      expect(w).toContain('2~12')
+      expect(r.teeth.length).toBeGreaterThanOrEqual(2)
+      expect(r.teeth.length).toBeLessThanOrEqual(12)
+      // 闭合仍成立，图纸可渲染
+      expect(r.closureError).toBeLessThanOrEqual(0.1)
+    }
+  })
+
+  it('回归·齿距十几毫米（合法齿数下<15mm）：齿距警告写明齿距与调整方向', () => {
+    // 宽板配密齿但仍在 2~12 内：W=160, n=12 → 13.3mm
+    const r = computeDovetail({ width: 160, thickness: 18, ratio: 8, teeth: 12, kerf: 1.1, wood: 'hardwood' })
+    const minRoot = Math.min(...r.teeth.map((t) => t.rootW))
+    if (minRoot >= 0 && 160 / 12 < 15) {
+      const w = r.warnings.find((x) => x.includes('齿距过小'))!
+      expect(w).toBeDefined()
+      expect(w).toContain('13.3')
+      expect(w).toContain('减少齿数')
+    }
+  })
+
   it('半隐燕尾：齿深 = 0.75×板厚，斜移量按齿深计算', () => {
     const r = computeDovetail({ width: 200, thickness: 18, ratio: 8, kerf: 1.1, wood: 'hardwood', blind: true })
     expect(r.depth).toBeCloseTo(13.5, 6)

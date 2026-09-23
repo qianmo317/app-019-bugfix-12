@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HomePage } from '../../src/pages/HomePage'
 import { NewPlanPage } from '../../src/pages/NewPlanPage'
-import { EditorPage } from '../../src/pages/EditorPage'
+import { EditorPage, PrintPage } from '../../src/pages/EditorPage'
 import { makePlan, upsertPlan } from '../../src/store/plans'
 import type { JointKind, Params } from '../../src/types'
 
@@ -47,6 +47,16 @@ describe('新建页：选类型 → 填参数 → 生成图纸', () => {
     await user.type(teeth, '12')
     expect(teeth).toHaveValue(12)
   })
+
+  it('新建页填写参数时即时警告：窄板加密齿在生成图纸前就提示', async () => {
+    const user = userEvent.setup()
+    render(<NewPlanPage />)
+    await user.click(screen.getByTestId('kind-dovetail'))
+    fireEvent.change(screen.getByTestId('a-width'), { target: { value: '60' } })
+    fireEvent.change(screen.getByTestId('teeth'), { target: { value: '12' } })
+    const banner = await screen.findByTestId('new-warnings')
+    expect(banner).toHaveTextContent('低于硬木最小安全值')
+  })
 })
 
 describe('编辑器：参数改动即时重算 + 脏状态提示 + 齿宽表', () => {
@@ -78,6 +88,35 @@ describe('编辑器：参数改动即时重算 + 脏状态提示 + 齿宽表', (
     expect(screen.getByTestId('dirty-bar')).toHaveTextContent('参数已改，请重新核对尺寸')
     // 重算耗时标注存在
     expect(screen.getByTestId('recalc-ms')).toBeInTheDocument()
+  })
+
+  it('齿数填越界值不被静默钳制：警告条写明越界项目/当前值/范围', async () => {
+    const user = userEvent.setup()
+    const { id } = savedPlan()
+    render(<EditorPage id={id} />)
+    const teeth = screen.getByTestId('teeth')
+    await user.clear(teeth)
+    await user.type(teeth, '15')
+    // 输入框保留 15（不再被钳成 12）
+    expect(teeth).toHaveValue(15)
+    const banner = screen.getByTestId('warnings')
+    expect(banner).toHaveTextContent('15')
+    expect(banner).toHaveTextContent('2~12')
+  })
+
+  it('打印图纸同样展示警告（车间不能拿着静默放行的图下锯）', () => {
+    const plan = makePlan('dovetail', {
+      boardA: { thickness: 18, width: 60 },
+      boardB: { thickness: 18, width: 60 },
+      wood: 'hardwood',
+      fit: 'standard',
+      dovetail: { angleRatio: 8, teeth: 12 },
+      kerfMm: 1.1,
+    })
+    upsertPlan(plan)
+    render(<PrintPage id={plan.id} />)
+    const banner = screen.getByTestId('print-warnings')
+    expect(banner).toHaveTextContent('低于硬木最小安全值')
   })
 
   it('切换榫卯类型 → 参数表单与切割步骤联动', async () => {

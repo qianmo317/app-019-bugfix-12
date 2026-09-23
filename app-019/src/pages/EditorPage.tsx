@@ -10,6 +10,7 @@ import { getPlan, upsertPlan, downloadJSON, deletePlan } from '../store/plans'
 import { navigate } from '../router'
 import { ViewSvg, CheckRuler } from '../components/ViewSvg'
 import { ParamForm } from '../components/ParamForm'
+import { WarningBanner } from '../components/WarningBanner'
 import { DEFAULT_FIT_TABLE, WOOD_LABEL, loadFitTable, saveFitTable, type FitTable } from '../lib/fit'
 
 export function EditorPage({ id }: { id: string }) {
@@ -101,13 +102,7 @@ export function EditorPage({ id }: { id: string }) {
         </aside>
 
         <main className="col-views">
-          {computed && computed.result.warnings.length > 0 && (
-            <div className="warnings" role="alert" data-testid="warnings">
-              {computed.result.warnings.map((w, i) => (
-                <p key={i}>⚠ {w}</p>
-              ))}
-            </div>
-          )}
+          {computed && <WarningBanner warnings={computed.result.warnings} />}
           <div className="views" data-testid="views">
             {computed?.views.map((vm) => <ViewSvg key={vm.id} vm={vm} />)}
           </div>
@@ -119,6 +114,7 @@ export function EditorPage({ id }: { id: string }) {
 
         <aside className="col-steps">
           <h2>切割步骤</h2>
+          {computed && <WarningBanner warnings={computed.result.warnings} testid="steps-warnings" />}
           {computed && <CutSteps cut={computed.cut} />}
           <button
             className="btn btn-danger btn-sm"
@@ -269,6 +265,7 @@ export function PrintPage({ id }: { id: string }) {
         <span className="note">打印前关闭「适应页面/缩放」，选择 A4、100% 缩放</span>
       </div>
       <h1 className="print-title">{plan.title}</h1>
+      <WarningBanner warnings={r.warnings} testid="print-warnings" />
       <section className="print-section">
         <h2>校验尺</h2>
         {views.map((vm) => (

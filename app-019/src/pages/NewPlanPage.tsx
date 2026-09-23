@@ -1,9 +1,11 @@
 // 新建方案：选榫卯类型 → 填参数 → 生成默认方案进入编辑器
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { JointKind, Params } from '../types'
 import { makePlan, upsertPlan } from '../store/plans'
 import { navigate } from '../router'
 import { KindPicker, ParamForm } from '../components/ParamForm'
+import { WarningBanner } from '../components/WarningBanner'
+import { computeJoint } from '../lib/calc'
 
 const DEFAULT_PARAMS: Params = {
   boardA: { thickness: 18, width: 200 },
@@ -17,6 +19,12 @@ const DEFAULT_PARAMS: Params = {
 export function NewPlanPage() {
   const [kind, setKind] = useState<JointKind | null>(null)
   const [params, setParams] = useState<Params>(DEFAULT_PARAMS)
+
+  // 参数填写阶段即时校验：违规参数在生成图纸前就提示，不把问题带进车间
+  const warnings = useMemo(
+    () => (kind ? computeJoint({ kind, params, notes: [] }).warnings : []),
+    [kind, params],
+  )
 
   const create = () => {
     if (!kind) return
@@ -32,7 +40,10 @@ export function NewPlanPage() {
       <KindPicker value={kind} onChange={setKind} />
       <h2>2. 填写参数</h2>
       {kind ? (
-        <ParamForm kind={kind} params={params} onChange={setParams} />
+        <>
+          <ParamForm kind={kind} params={params} onChange={setParams} />
+          <WarningBanner warnings={warnings} testid="new-warnings" />
+        </>
       ) : (
         <p className="empty">先选择上面的榫卯类型</p>
       )}

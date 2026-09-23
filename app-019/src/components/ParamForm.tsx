@@ -12,6 +12,7 @@ export function NumField({
   step = 0.5,
   testid,
   hint,
+  clamp = true,
 }: {
   label: string
   value: number
@@ -21,8 +22,10 @@ export function NumField({
   step?: number
   testid?: string
   hint?: string
+  // 默认对尺寸输入做范围钳制；齿数等需要让越界值进入校验并出警告的字段传 false
+  clamp?: boolean
 }) {
-  const clamp = (v: number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, v))
+  const limit = (v: number) => (clamp ? Math.min(max ?? Infinity, Math.max(min ?? -Infinity, v)) : v)
   return (
     <label className="field">
       <span className="field-label">{label}</span>
@@ -35,7 +38,7 @@ export function NumField({
         max={max}
         onChange={(e) => {
           const v = parseFloat(e.target.value)
-          if (Number.isFinite(v)) onChange(Math.round(clamp(v) * 10) / 10)
+          if (Number.isFinite(v)) onChange(Math.round(limit(v) * 10) / 10)
         }}
         onKeyDown={(e) => {
           if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -44,7 +47,7 @@ export function NumField({
             const base = Number.isFinite(parseFloat((e.target as HTMLInputElement).value))
               ? parseFloat((e.target as HTMLInputElement).value)
               : 0
-            onChange(Math.round(clamp(base + dir * step) * 10) / 10)
+            onChange(Math.round(limit(base + dir * step) * 10) / 10)
           }
         }}
       />
@@ -179,10 +182,9 @@ export function ParamForm({
             label="齿数（0=自动建议）"
             testid="teeth"
             value={params.dovetail?.teeth ?? 0}
-            min={0}
-            max={12}
             step={1}
-            hint={`建议 ${suggested} 齿`}
+            clamp={false}
+            hint={`建议 ${suggested} 齿；合理范围 2~12，越界会给出警告`}
             onChange={(v) => setDt({ teeth: v === 0 ? undefined : v })}
           />
         </fieldset>

@@ -109,6 +109,11 @@ input[type="number"] { width: 90px; text-align: right; }
 }
 .warnings { background: #fdf3e7; border: 1px solid #eccb9f; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
 .warnings p { margin: 4px 0; color: var(--warn); }
+.warnings .warnings-head { font-weight: 700; margin-top: 0; }
+@media print {
+  .warnings { border: 2px solid #000; background: #fff; }
+  .warnings p, .warnings .warnings-head { color: #000; }
+}
 .error { color: #a33; }
 .ok { color: var(--ok); }
 .note { color: #777; font-size: 12px; }
