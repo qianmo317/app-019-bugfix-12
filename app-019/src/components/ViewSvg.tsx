@@ -2,6 +2,7 @@
 import type { ViewModel, VDim, VLine } from '../geometry/views'
 
 const PAD = { l: 22, r: 26, t: 26, b: 40 }
+const WARN_ROW_H = 5.5 // 与 geometry/views.ts 中警示行距一致
 
 function lineEl(l: VLine, key: number) {
   const clsMap: Record<VLine['cls'], string> = {
@@ -56,18 +57,22 @@ function dimEl(d: VDim, i: number) {
 }
 
 export function ViewSvg({ vm, widthMm }: { vm: ViewModel; widthMm?: number }) {
+  // 有顶部警示时给警示行让出空间（警示 y 为负，最高一行 = -8 - (n-1)×5.5）
+  const warnPad = (vm.warnRows ?? 0) > 0 ? 8 + (vm.warnRows! - 1) * WARN_ROW_H + 6 : 0
+  const padT = PAD.t + warnPad
   const w = vm.contentW + PAD.l + PAD.r
-  const h = vm.contentH + PAD.t + PAD.b
+  const h = vm.contentH + padT + PAD.b
   const style = widthMm ? { width: `${widthMm}mm` } : undefined
   return (
     <svg
       data-view={vm.id}
+      data-warnings={vm.warnRows ?? 0}
       viewBox={`0 0 ${w} ${h}`}
       style={style}
       className="view-svg"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <g transform={`translate(${PAD.l}, ${PAD.t})`}>
+      <g transform={`translate(${PAD.l}, ${padT})`}>
         <rect x={0} y={0} width={vm.contentW} height={vm.contentH} fill="none" stroke="none" />
         {vm.lines.map((l, i) => lineEl(l, i))}
         {vm.dims.map((d, i) => dimEl(d, i))}

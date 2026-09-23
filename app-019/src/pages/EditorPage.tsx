@@ -96,7 +96,12 @@ export function EditorPage({ id }: { id: string }) {
             ))}
           </select>
           <h2>参数</h2>
-          <ParamForm kind={joint.kind} params={joint.params} onChange={updateParams} />
+          <ParamForm
+            kind={joint.kind}
+            params={joint.params}
+            onChange={updateParams}
+            warnings={computed?.result.warnings ?? []}
+          />
           <FitTableEditor />
         </aside>
 
@@ -269,6 +274,15 @@ export function PrintPage({ id }: { id: string }) {
         <span className="note">打印前关闭「适应页面/缩放」，选择 A4、100% 缩放</span>
       </div>
       <h1 className="print-title">{plan.title}</h1>
+      {r.warnings.length > 0 && (
+        <section className="print-section">
+          <div className="warnings" role="alert" data-testid="warnings">
+            {r.warnings.map((w, i) => (
+              <p key={i}>⚠ {w}</p>
+            ))}
+          </div>
+        </section>
+      )}
       <section className="print-section">
         <h2>校验尺</h2>
         {views.map((vm) => (

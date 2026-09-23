@@ -27,7 +27,7 @@ export interface VText {
   y: number
   text: string
   anchor?: 'start' | 'middle' | 'end'
-  cls?: 'note' | 'angle'
+  cls?: 'note' | 'angle' | 'warn'
 }
 export interface VMark {
   x: number
@@ -43,9 +43,30 @@ export interface ViewModel {
   dims: VDim[]
   texts: VText[]
   marks: VMark[]
+  /** 顶部警示文字条数（>0 时渲染器需在视图上方留白） */
+  warnRows?: number
 }
 
 const LJ = 36 // 大面视图沿板长方向的截取长度 mm
+
+/**
+ * 把警告直接盖在视图顶部：图纸无论在屏幕上还是打印件上，
+ * 参数不合格时都必须看得见警示，不能只靠编辑器侧栏。
+ */
+function stampWarnings(v: ViewModel, warnings: string[]) {
+  if (warnings.length === 0) return
+  v.warnRows = warnings.length
+  const rowH = 5.5
+  warnings.forEach((w, i) => {
+    v.texts.push({
+      x: 0,
+      y: -8 - (warnings.length - 1 - i) * rowH,
+      text: `⚠ ${w}`,
+      anchor: 'start',
+      cls: 'warn',
+    })
+  })
+}
 
 function base(id: ViewId, title: string, w: number, h: number): ViewModel {
   return { id, title, contentW: w, contentH: h, lines: [], dims: [], texts: [], marks: [] }
@@ -160,6 +181,7 @@ function dovetailViews(kind: JointKind, p: Joint['params'], dt: DovetailResult):
   vdim(side, 0, tB, -12, `厚 ${fmtDrawing(tB)}`)
   side.texts.push({ x: 0, y: tB + 24, text: blind ? `配齿板：齿深 ${fmtDrawing(dt.depth)}mm（半隐）` : '配齿板：穿透', anchor: 'start', cls: 'note' })
 
+  for (const v of [front, top, side]) stampWarnings(v, dt.warnings)
   return [front, top, side]
 }
 

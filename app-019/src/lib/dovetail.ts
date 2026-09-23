@@ -4,7 +4,7 @@
 //  - 均衡布局：槽宽 = 齿根宽、边距 = 半个齿根宽 → Σ(齿顶宽) + Σ(齿根宽) = 板宽（严格闭合）
 //  - 齿顶宽（展示面）= 齿根宽 + 2 × 斜移量；斜移量 = 齿深 / 角度比 r（1:r）
 import type { Wood } from '../types'
-import { round01 } from './format'
+import { round01, fmt01 } from './format'
 
 const U = 0.1 // 0.1mm 网格
 
@@ -52,6 +52,16 @@ export interface DovetailResult {
   minTopW: number
 }
 
+/** 齿数合理范围（蓝图 §8：2~12） */
+export const TEETH_MIN = 2
+export const TEETH_MAX = 12
+/** 齿距下限（mm）：低于 20mm（即齿距落到十几毫米）齿间木料过小、易劈裂；自动建议目标约 28mm */
+export const MIN_PITCH = 20
+/** 大宽板最少齿数：板宽达到该值时不允许少于 3 齿（结合强度） */
+export const WIDE_BOARD_MM = 150
+
+const WOOD_LABEL: Record<Wood, string> = { softwood: '软木', hardwood: '硬木' }
+
 /** 齿数自动建议：目标齿距约 28mm，并保证齿根宽不低于最小安全值 */
 export function suggestTeeth(
   width: number,
@@ -62,8 +72,8 @@ export function suggestTeeth(
 ): number {
   const depth = blind ? thickness * 0.75 : thickness
   const off = depth / ratio
-  let n = Math.max(2, Math.min(12, Math.round(width / 28)))
-  while (n > 2 && width / (2 * n) - off < MIN_ROOT[wood]) n--
+  let n = Math.max(TEETH_MIN, Math.min(TEETH_MAX, Math.round(width / 28)))
+  while (n > TEETH_MIN && width / (2 * n) - off < MIN_ROOT[wood]) n--
   return n
 }
 
@@ -72,9 +82,14 @@ export function computeDovetail(input: DovetailInput): DovetailResult {
   const warnings: string[] = []
   const depth = blind ? round01(thickness * (input.blindDepthRatio ?? 0.75)) : thickness
   const slopeOffset = depth / ratio
-  const n = input.teeth ?? suggestTeeth(width, thickness, ratio, wood, blind)
+  const requested = input.teeth ?? suggestTeeth(width, thickness, ratio, wood, blind)
   const minRootW = MIN_ROOT[wood]
   const minTopW = round01(2 * kerf)
+
+  // 齿数越界（如手填 20 / 0 / 负数、导入的历史数据）：不静默钳制，
+  // 保留 requested 用于警告，几何计算用至少 1 的兜底值防止除零/坐标失控
+  const outOfRange = !Number.isFinite(requested) || requested < TEETH_MIN || requested > TEETH_MAX
+  const n = Math.max(1, Math.round(requested))
 
   // —— 0.1mm 网格上的等分 + 余量处理 ——
   // 总网格数分配到 n 个齿（齿顶+齿根 成对），累积取整差分保证 Σpair 严格等于总宽
@@ -134,24 +149,41 @@ export function computeDovetail(input: DovetailInput): DovetailResult {
     half: true,
   })
 
-  // —— 约束校验与警告（不允许静默输出）——
+  // —— 约束校验与警告（蓝图 §8：不允许静默输出）——
+  // 每条警告必须写清：哪一项不合格、当前值是多少、该怎么调。
   const minRoot = Math.min(...rootUnits) * U
   const minTop = Math.min(...topUnits) * U
+  const woodName = WOOD_LABEL[wood]
   if (minRoot < 0 || minTop < 0) {
-    warnings.push('当前齿数与角度比排布不开，请调整参数')
+    warnings.push(
+      `排布失败：${n} 齿在板宽 ${width}mm、角度比 1:${ratio} 下齿宽出现负值（最小齿顶 ${fmt01(minTop)}mm、最小齿根 ${fmt01(minRoot)}mm），无法排布；请减少齿数或减小斜度比`,
+    )
   }
-  if (minTop < 0) {
-    warnings.push('最小齿顶宽为负值，无法排布')
+  if (minRoot >= 0 && minRoot < minRootW) {
+    warnings.push(
+      `齿根过窄：最小齿根宽仅 ${fmt01(minRoot)}mm，低于${woodName}最小安全值 ${minRootW}mm（板宽 ${width}mm / ${n} 齿 / 角度比 1:${ratio}），建议减少齿数`,
+    )
   }
-  if (n < 3 && width >= 150) {
-    warnings.push(`齿数过少（${n} 齿），板宽 ${width}mm 建议至少 3 齿以保证结合强度`)
+  if (minTop >= 0 && minTop < minTopW) {
+    warnings.push(
+      `齿顶过窄：最小齿顶宽仅 ${fmt01(minTop)}mm，小于 2×锯路 = ${fmt01(minTopW)}mm（锯路 ${kerf}mm），锯片切不出完整齿；建议减少齿数或改用更窄锯路的锯片`,
+    )
+  }
+  if (width >= WIDE_BOARD_MM && n < 3) {
+    warnings.push(
+      `齿数过少：当前 ${n} 齿，板宽 ${width}mm 建议至少 3 齿以保证结合强度（建议 ${suggestTeeth(width, thickness, ratio, wood, blind)} 齿）`,
+    )
   }
   const pitch = width / n
-  if (pitch < 15 && pitch > 0) {
-    warnings.push(`齿距仅 ${pitch.toFixed(1)}mm，过小易劈裂，建议减少齿数`)
+  if (pitch < MIN_PITCH && pitch > 0) {
+    warnings.push(
+      `齿距过小：当前齿距仅 ${pitch.toFixed(1)}mm（板宽 ${width}mm / ${n} 齿），低于 ${MIN_PITCH}mm（齿距落到十几毫米）易劈裂；建议减少齿数（建议 ${suggestTeeth(width, thickness, ratio, wood, blind)} 齿）`,
+    )
   }
-  if (n < 2 || n > 12) {
-    warnings.push(`齿数 ${n} 超出合理范围（2~12）`)
+  if (outOfRange) {
+    warnings.push(
+      `齿数超出合理范围：当前填的是 ${requested}，允许范围 ${TEETH_MIN}~${TEETH_MAX} 齿（0=自动建议）；请改回范围内，或填 0 使用建议齿数 ${suggestTeeth(width, thickness, ratio, wood, blind)}`,
+    )
   }
 
   return {

@@ -76,7 +76,7 @@ interface ViewModel { id: 'front'|'top'|'side'; title: string; contentW: number;
   ```
   逐齿偏差 ≤ 1 格（0.1mm），闭合误差 `closureError` 每轮实测（编辑器页脚显示到小数点后 3 位）。
 - **齿数建议（`dovetail.ts:56`）**：目标齿距约 28mm，`clamp(round(板宽/28), 2, 12)`，然后在不超过 2 齿的前提下递减，直到齿根宽 ≥ 最小安全值。
-- **不静默放行**：齿根 < `MIN_ROOT`（软木 6mm / 硬木 4mm，`dovetail.ts:12`）、齿顶 < 2×kerf（锯片切不出来）、板宽 ≥ 150 而齿数 < 3、齿距 < 15mm、齿数为负值或超出 2~12，都写入 `warnings` 并在编辑器 `role="alert"` 区域展示。
+- **不静默放行**：齿根 < `MIN_ROOT`（软木 6mm / 硬木 4mm，`dovetail.ts:12`）、齿顶 < 2×kerf（锯片切不出来）、板宽 ≥ 150 而齿数 < 3、齿距 < 20mm（齿距落到十几毫米即警告）、齿数为负值或超出 2~12，都写入 `warnings`；编辑器 `role="alert"` 区域、参数字段下方、新建页预览与打印页均展示，三视图 SVG 顶部同时盖上警示文字。
 - **直榫经验公式（`src/lib/tenon.ts:42-53`）**：
   ```text
   名义榫厚 = round01(tA × thicknessRatio)；榫厚 = round01(名义 + 配合余量表值)

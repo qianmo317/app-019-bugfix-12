@@ -12,6 +12,7 @@ export function NumField({
   step = 0.5,
   testid,
   hint,
+  clamp: shouldClamp = true,
 }: {
   label: string
   value: number
@@ -21,8 +22,11 @@ export function NumField({
   step?: number
   testid?: string
   hint?: string
+  /** 是否在输入时悄悄钳制到 min/max；默认钳制。设为 false 时越界值照常上抛，由计算层出警告 */
+  clamp?: boolean
 }) {
-  const clamp = (v: number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, v))
+  const clamp = (v: number) =>
+    shouldClamp ? Math.min(max ?? Infinity, Math.max(min ?? -Infinity, v)) : v
   return (
     <label className="field">
       <span className="field-label">{label}</span>
@@ -57,10 +61,13 @@ export function ParamForm({
   kind,
   params,
   onChange,
+  warnings = [],
 }: {
   kind: JointKind
   params: Params
   onChange: (p: Params) => void
+  /** 当前参数实时重算出的警告（编辑器/新建页同源计算），按关键字就近挂到对应字段下方 */
+  warnings?: string[]
 }) {
   const set = (patch: Partial<Params>) => onChange({ ...params, ...patch })
   const setA = (patch: Partial<Params['boardA']>) => set({ boardA: { ...params.boardA, ...patch } })
@@ -158,6 +165,12 @@ export function ParamForm({
           hint="常见 1.1 / 1.6 / 2.2"
           onChange={(v) => set({ kerfMm: v })}
         />
+        {isDt &&
+          warnings
+            .filter((w) => w.includes('齿顶') || w.includes('齿根'))
+            .map((w, i) => (
+              <span className="field-error" role="alert" key={i}>⚠ {w}</span>
+            ))}
       </fieldset>
 
       {isDt && (
@@ -182,9 +195,17 @@ export function ParamForm({
             min={0}
             max={12}
             step={1}
-            hint={`建议 ${suggested} 齿`}
+            clamp={false}
+            hint={warnings.some((w) => w.includes('齿数') || w.includes('齿距'))
+              ? undefined
+              : `建议 ${suggested} 齿`}
             onChange={(v) => setDt({ teeth: v === 0 ? undefined : v })}
           />
+          {warnings
+            .filter((w) => w.includes('齿数') || w.includes('齿距') || w.includes('排布失败'))
+            .map((w, i) => (
+              <span className="field-error" role="alert" key={i}>⚠ {w}</span>
+            ))}
         </fieldset>
       )}
 

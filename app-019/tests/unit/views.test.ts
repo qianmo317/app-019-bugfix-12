@@ -63,6 +63,32 @@ describe('三视图一致性（断言：正视图宽 = 俯视图宽）', () => {
     const front = views.find((v) => v.id === 'front')!
     expect(front.marks.map((m) => m.text)).toEqual(r.dovetail!.teeth.map((t) => String(t.index)))
   })
+
+  it('燕尾：参数有警告时每个三视图顶部都盖上同一条警示文字', () => {
+    const joint = makeJoint('dovetail')
+    joint.params.boardA.width = 30
+    joint.params.dovetail = { angleRatio: 6, teeth: 12 }
+    joint.params.kerfMm = 2.2
+    const r = computeJoint(joint)
+    expect(r.warnings.length).toBeGreaterThan(0)
+    const views = buildViews(joint, r)
+    for (const v of views) {
+      expect(v.warnRows).toBe(r.warnings.length)
+      const warnTexts = v.texts.filter((t) => t.cls === 'warn')
+      expect(warnTexts).toHaveLength(r.warnings.length)
+      expect(warnTexts.some((t) => t.text.includes('锯路'))).toBe(true)
+    }
+  })
+
+  it('燕尾：参数正常时视图不含警示', () => {
+    const joint = makeJoint('dovetail')
+    const r = computeJoint(joint)
+    expect(r.warnings).toEqual([])
+    for (const v of buildViews(joint, r)) {
+      expect(v.warnRows ?? 0).toBe(0)
+      expect(v.texts.some((t) => t.cls === 'warn')).toBe(false)
+    }
+  })
 })
 
 describe('切割清单', () => {

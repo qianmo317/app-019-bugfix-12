@@ -47,6 +47,28 @@ describe('新建页：选类型 → 填参数 → 生成图纸', () => {
     await user.type(teeth, '12')
     expect(teeth).toHaveValue(12)
   })
+
+  it('齿数填出范围不再被悄悄钳制：新建页直接出现越界警告（项目+当前值+允许范围）', async () => {
+    render(<NewPlanPage />)
+    fireEvent.click(screen.getByTestId('kind-dovetail'))
+    const teeth = screen.getByTestId('teeth')
+    fireEvent.change(teeth, { target: { value: '20' } })
+    expect(teeth).toHaveValue(20)
+    const warnings = screen.getByTestId('warnings')
+    expect(warnings).toHaveTextContent('超出合理范围')
+    expect(warnings).toHaveTextContent('20')
+    expect(warnings).toHaveTextContent('2~12')
+  })
+
+  it('板宽 300 / 2 齿：新建页预览与字段下方都给出齿数过少警告', async () => {
+    render(<NewPlanPage />)
+    fireEvent.click(screen.getByTestId('kind-dovetail'))
+    fireEvent.change(screen.getByTestId('a-width'), { target: { value: '300' } })
+    fireEvent.change(screen.getByTestId('teeth'), { target: { value: '2' } })
+    expect(screen.getByTestId('warnings')).toHaveTextContent('齿数过少')
+    // 字段下方就近提示
+    expect(screen.getAllByRole('alert').some((el) => el.textContent?.includes('齿数过少'))).toBe(true)
+  })
 })
 
 describe('编辑器：参数改动即时重算 + 脏状态提示 + 齿宽表', () => {
@@ -78,6 +100,23 @@ describe('编辑器：参数改动即时重算 + 脏状态提示 + 齿宽表', (
     expect(screen.getByTestId('dirty-bar')).toHaveTextContent('参数已改，请重新核对尺寸')
     // 重算耗时标注存在
     expect(screen.getByTestId('recalc-ms')).toBeInTheDocument()
+  })
+
+  it('锯路 2.2 + 齿顶切不出：编辑器警告区与图纸 SVG 同时给出锯路警告', async () => {
+    const { id } = savedPlan()
+    render(<EditorPage id={id} />)
+    // 构造成密齿：板宽收到 30、齿数 12、锯路 2.2（change 等价于清空后填入最终值）
+    fireEvent.change(screen.getByTestId('a-width'), { target: { value: '30' } })
+    fireEvent.change(screen.getByTestId('teeth'), { target: { value: '12' } })
+    fireEvent.change(screen.getByTestId('kerf'), { target: { value: '2.2' } })
+
+    const warnings = screen.getByTestId('warnings')
+    expect(warnings).toHaveTextContent('锯路')
+    expect(warnings).toHaveTextContent('4.4')
+    // 警告必须直接盖在三视图上（打印/截图都带得走）
+    const stamped = document.querySelectorAll('[data-view] text.view-text.warn')
+    expect(stamped.length).toBeGreaterThan(0)
+    expect(Array.from(stamped).some((el) => el.textContent?.includes('锯路'))).toBe(true)
   })
 
   it('切换榫卯类型 → 参数表单与切割步骤联动', async () => {

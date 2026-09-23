@@ -82,6 +82,8 @@ input[type="number"] { width: 90px; text-align: right; }
 .field { display: flex; flex-direction: column; margin: 8px 0; gap: 2px; }
 .field-label { font-size: 12px; color: #555; }
 .field-hint { font-size: 11px; color: #999; }
+.field-error { font-size: 11px; color: var(--warn); line-height: 1.4; }
+.view-text.warn { fill: var(--warn); font-size: 4.2px; font-weight: 600; }
 
 .editor-grid { display: grid; grid-template-columns: 300px 1fr 300px; gap: 16px; align-items: start; }
 @media (max-width: 1100px) { .editor-grid { grid-template-columns: 1fr; } }

@@ -58,6 +58,39 @@ test.describe('全流程：选类型 → 填尺寸 → 出三视图 → 打印 1
     await expect(page.getByTestId('dirty-bar')).toBeHidden()
   })
 
+  test('四类不合格参数各自给出对应警告（含项目/当前值/调整方向），并盖在图纸上', async ({ page }) => {
+    await goto(page, '/#/new')
+    await page.getByTestId('kind-dovetail').click()
+
+    // ① 板宽 300 / 齿数 2
+    await page.getByTestId('a-width').fill('300')
+    await page.getByTestId('teeth').fill('2')
+    await expect(page.getByTestId('warnings')).toContainText('齿数过少')
+    await expect(page.getByTestId('warnings')).toContainText('2 齿')
+
+    // ② 锯路 2.2 + 密齿（板宽 30 / 12 齿）：齿顶 < 2×锯路
+    await page.getByTestId('a-width').fill('30')
+    await page.getByTestId('teeth').fill('12')
+    await page.getByTestId('kerf').fill('2.2')
+    await expect(page.getByTestId('warnings')).toContainText('齿顶过窄')
+    await expect(page.getByTestId('warnings')).toContainText('4.4')
+    // 警告直接出现在三视图 SVG 上
+    await expect(page.locator('[data-view="front"] text.view-text.warn')).toHaveCount(3)
+
+    // ③ 齿距十几毫米（板宽 200 / 12 齿 = 16.7mm）
+    await page.getByTestId('a-width').fill('200')
+    await page.getByTestId('teeth').fill('12')
+    await page.getByTestId('kerf').fill('1.1')
+    await expect(page.getByTestId('warnings')).toContainText('齿距过小')
+    await expect(page.getByTestId('warnings')).toContainText('16.7')
+
+    // ④ 齿数填出范围（20）：输入不被悄悄钳制，警告写出填写值与范围
+    await page.getByTestId('teeth').fill('20')
+    await expect(page.getByTestId('teeth')).toHaveValue('20')
+    await expect(page.getByTestId('warnings')).toContainText('超出合理范围')
+    await expect(page.getByTestId('warnings')).toContainText('2~12')
+  })
+
   test('键盘方向键微调 0.5mm（蓝图 §9）', async ({ page }) => {
     await goto(page, '/#/new')
     await page.getByTestId('kind-dovetail').click()
